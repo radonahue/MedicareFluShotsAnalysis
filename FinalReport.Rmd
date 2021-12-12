@@ -2,7 +2,7 @@
 title: "The Fashionability of Flu Shots for the Medicare Population"
 author: "Rachel Donahue"
 geometry: margin=2cm
-date: "12/10/2021"
+date: "12/12/2021"
 output:
   pdf_document: default
 ---
@@ -25,23 +25,23 @@ library(sjPlot)
 ```
 ## Abstract
 
-Medicare is one of the largest drivers of consumption and spending in the United States healthcare system, and Influenza (flu) causes hospitalizations and deaths of thousands of people annually. As vaccine hesitancy has become a pressing issue in efforts to combat the Covid-19 pandemic, it seems worth exploring how this sizable and vulnerable population was already utilizing vaccinations for an extant dangerous illness. This leads to questions of "How has Medicare flu vaccination rates been changing over the last several years?" and "How does that rate vary across states?". To make these comparisons, a multilevel poisson model was fitted on Medicare claims data from 2013-2019 and its limitations are discussed.
+As vaccine hesitancy has become a pressing issue in efforts to combat the Covid-19 pandemic, it seems worth exploring how the sizable and vulnerable Medicare population was already utilizing vaccinations for an extant dangerous illness, influenza (flu). This leads to questions of "How has Medicare flu vaccination rates been changing over the last several years?" and "How does that rate vary across states?". To make these comparisons, a multilevel poisson model was fitted on Medicare claims data from 2013-2019, which yielded an overall fixed effect of a decline in the rate of flu shot distributions for that period of time, and states such as California which has the largest amount of Medicare patients showed an even steeper decline than the fixed effects. Comparisons of provider types were also explored, yielding a fixed effect increase of vaccination administration coming from entities rather than individuals. This is key information that could inform public health messaging strategies for a world that gets accustomed to frequent seasonal vaccinations for Covid-19.
 
 ## Introduction
 
 The United States Medicare program is a federal health insurance program that services predominately people 65 years of age and older. As of 2020, over 62.6 million people are enrolled with a projected increase of 50% over the next decade as all of the members of the "Baby Boomer" generation reach the qualifying age. Care for this population will put tremendous strain on the healthcare system, and it will become crucial to maximize individual participation in preventative health measures to reduce this burden. 
 
-Caring for flu patients is one of those strenuous healthcare activities that can be reduced by vaccinations. Flu illness routinely hospitalizes hundreds of thousands of people every year, seasonal flu vaccination is estimated to reduce the risk of having to seek medical treatment by 40-60%. The Medicare population is a high proportion of these cases as they are a large proportion of the broader US population. However there are differences in the enrollment rates per state, which is important to take into consideration. An additional comparison worth exploring is the means by which Medicare patients pursue vaccinations in these state groupings; if more beneficiaries are getting vaccinated through organizations such as a local CVS pharmacy or their individual healthcare provider, this creates different avenues through which public health campaigns may be more effective.
+Caring for flu patients is one of those strenuous healthcare activities that can be reduced by vaccinations. Flu illness routinely hospitalizes hundreds of thousands of people every year and causes thousands of deaths, seasonal flu vaccination is estimated to reduce the risk of having to seek medical treatment by 40-60%. The Medicare population is a high proportion of these cases as they are a large proportion of the broader US population. However there are differences in the enrollment rates per state, which is important to take into consideration. An additional comparison worth exploring is the means by which Medicare patients pursue vaccinations in these state groupings; if more beneficiaries are getting vaccinated through organizations such as a local CVS pharmacy or their individual healthcare provider, this creates different avenues through which public health campaigns may be more effective.
 
 Multilevel poisson modeling is used to assess these comparisons in flu vaccinations rates among this population.
 
 ## Method
 
-###Data
+### Data
 
-The data that is being used to fit the model comes from two sources- one from the Medicare Physician & Other Practitioners- by Provider and Service public use files provided by the Centers for Medicare & Medicaid (CMS) website and one from the American Community Survey provided by the US Census Bureau. The CMS data set contains all of the services that providers have submitted claims through out the year for Original Medicare Part B beneficiaries, broken out by National Provider Identifier (NPI) number and HCPCS code. Filtering was applied to obtain flu shot specific charges, additional details can be found in the appendix. The ACS dataset contains the estimates of the Medicare population for each state for the years 2013-2019.
+The data that is being used to fit the model comes from two sources- one from the Medicare Physician & Other Practitioners- by Provider and Service public use files provided by the Centers for Medicare & Medicaid (CMS) website and one from the American Community Survey provided by the US Census Bureau. The CMS data set contains all of the services that providers have submitted claims through out the year for Original Medicare Part B beneficiaries, broken out by National Provider Identifier (NPI) number and HCPCS code. Filtering was applied to obtain flu shot specific charges, additional details can be found in the appendix. The ACS data set contains the estimates of the Medicare population for each state for the years 2013-2019.
 
-
+\newpage
 ```{r include=FALSE}
 
 library(tidyverse)
@@ -241,7 +241,7 @@ family=poisson(link=log))
 
 ```
 
-The summary of the fixed effects are in the table below, year is significant at a .1 significance level:
+The summary of the fixed effects are in the table below, yearnum is significant at a .1 significance level:
 
 |                |Estimate   |Std. Error    |z value |Pr(>&#124;t&#124;) |
 |:---:           |:---:      |:---:         |:---:       |:---:              |
@@ -292,11 +292,14 @@ The above plot shows a simulation of the random effects for the yearnum coeffici
 
 ## Discussion
 
-This analysis has some restrictions in that there are some problems with the model- with the clustering of the residuals and the overdispersion factors. Quasipoisson and negative binomial models were also considered, however errors resulted that were not fixable. Other R formulas for running the model were also considered such as stan_glmer, but the model did not converge. Based on these challenges this was the best model that could be composed.
+There were some challenges fitting an optimal model that are noted in the appendix, which leads to some limitations with this analysis. Quasipoisson and negative binomial multilevel models were also considered, however errors resulted that were not fixable. Other methods for running the model were also considered such as stan_glmer, but the model did not converge. Based on these challenges this was the best model that could be composed.
 
-Another key limitation to this analysis comes from the data- it is impossible to get the true numbers of the Medicare beneficiaries that received flu shots from 2013-2019. If beneficiaries are able to obtain shots through a free clinic that didn't require insurance to pay for it, then that scenario is unrecorded here. And as it is the case that in certain states, an increasing number of patients are receiving their vaccinations from entity settings as opposed to individual providers; free clinic settings are likely getting larger shares of these patients. Another key restriction is the population estimates- the ACS survey is an estimate for patients that have both Medicare Part A and B, although it's estimated that 93% of Medicare patients do have both insurances and that an estimate for both can be a sufficient estimate for one, it is likely an overestimate for that Part B population and observed flu vaccination rates are likely higher. 
+Another key limitation to this analysis comes from the data- it is impossible to get the true numbers of the Medicare beneficiaries that received flu shots from 2013-2019. If beneficiaries are able to obtain shots through a free clinic that did not require insurance to pay for it, then that scenario is unrecorded here. Another key restriction is the population estimates- the ACS survey is an estimate for patients that have both Medicare Part A and B, although it's estimated that 93% of Medicare patients do have both insurances and that an estimate for both can be a sufficient estimate for one, it is likely an overestimate for that Part B population and observed flu vaccination rates are likely higher. 
 
-Despite limitations, this analysis still produces some interesting considerations. If broader flu shot rates for this population were truly declining during this period of time, it lays somewhat of a foundation for some of the difficulties getting the broader US population vaccinated for the Covid-19 pandemic. Additionally if frequent booster shots become required to effectively control the spread of Covid-19 and its variants, understanding how this population was utilizing an already existing seasonal vaccination becomes relevant. Also seeing how beneficiaries are increasingly getting vaccinated in various states, whether that be most commonly through an individual physician or an organization, presents an opportunity to contemplate how to best to reach these patients to persuade them to get vaccinated. Knowing which states had a sharper decline in vaccination rates over time compared to the overall average also helps public health officials identify strategies ****
+Despite limitations, this analysis still produces interesting considerations. Given the observed decline in flu shot rates for the United States Medicare population as a whole for each year during this period, it is almost unsurprising that there were difficulties encountered getting people to comply during the initial Covid-19 vaccination campaign by public health officials. Furthermore seeing that of those who were getting vaccinated, an increased share were going to entities rather than individual care providers, which perhaps indicates an increased association of vaccination with corporations and governments rather than something a trusted care provider recommends and administers. While from an efficiency standpoint it makes sense that the future of seasonal vaccination administration likely lies in the hands of these entities, it is important for public health officials to take note so outreach strategies can be framed around this context.
+
+The state level comparison is a strength of this analysis. Different states have different shares of the Medicare population and therefore have different requirements for potential successful public vaccination campaigns. Knowing which states were observing sharper changes than average in flu vaccinations over time and which were deviating from the entity level comparison, gives an opportunity for more targeted messaging efforts. California for example, the state with the largest amount of Medicare Beneficiaries and would be a key state to focus on to make improvements, deviates somewhat from the trend of increased share of entity level vaccination. Considering that it is a large state with a mix of urban and rural areas, it is possible that certain people do not have convenient access to either a pharmacy or a care provider for geographic reasons, and understanding these challenges can be key to making improvements in vaccination rates.
+
 
 ## Citations
 
