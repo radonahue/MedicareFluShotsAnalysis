@@ -1,7 +1,8 @@
 ---
 title: "The Fashionability of Flu Shots for the Medicare Population"
 author: "Rachel Donahue"
-date: "12/02/2021"
+geometry: margin=2cm
+date: "12/10/2021"
 output:
   pdf_document: default
 ---
@@ -19,6 +20,8 @@ library(lme4)
 library(vcd)
 library(rstanarm)
 library(gridExtra)
+library(arm)
+library(sjPlot)
 ```
 ## Abstract
 
@@ -26,7 +29,7 @@ Medicare is one of the largest drivers of consumption and spending in the United
 
 ## Introduction
 
-The United States Medicare program is a federal health insurance program that services predominately people ages 65 years and older. As of 2020, over 62.6 million people are enrolled with a projected increase of 50% over the next decade as all of the members of the "Baby Boomer" generation reach the qualifying age. Care for this population will put tremendous strain on the healthcare system, and it will become crucial to maximize individual participation in preventative health measures to reduce this burden. 
+The United States Medicare program is a federal health insurance program that services predominately people 65 years of age and older. As of 2020, over 62.6 million people are enrolled with a projected increase of 50% over the next decade as all of the members of the "Baby Boomer" generation reach the qualifying age. Care for this population will put tremendous strain on the healthcare system, and it will become crucial to maximize individual participation in preventative health measures to reduce this burden. 
 
 Caring for flu patients is one of those strenuous healthcare activities that can be reduced by vaccinations. Flu illness routinely hospitalizes hundreds of thousands of people every year, seasonal flu vaccination is estimated to reduce the risk of having to seek medical treatment by 40-60%. The Medicare population is a high proportion of these cases as they are a large proportion of the broader US population. However there are differences in the enrollment rates per state, which is important to take into consideration. An additional comparison worth exploring is the means by which Medicare patients pursue vaccinations in these state groupings; if more beneficiaries are getting vaccinated through organizations such as a local CVS pharmacy or their individual healthcare provider, this creates different avenues through which public health campaigns may be more effective.
 
@@ -34,12 +37,11 @@ Multilevel poisson modeling is used to assess these comparisons in flu vaccinati
 
 ## Method
 
-### Data Cleaning and Processing
-The data that is being used to answer these questions come from two sources- one from the Medicare Physician & Other Practitioners- by Provider and Service public use files provided by (CMS) website and one from the American Community Survey provided by the US Census Bureau. The CMS data set is a fairly large data set that contains all of the services that providers have submitted claims through out the year for Original Medicare Part B beneficiaries, broken out by National Provider Identifier (NPI) number and HCPCS code. To subset down to flu shot related charges for each available year, filtering was applied for selected the columns HCPCS_Desc for charges containing the words "flu" and "vaccine". Additional filtering was applied for Rndrng_Prvdr_Cntry="US". The ACS data set gives population estimates for the Medicare Part A and B populations in each of the following states through out the years which was estimated through the American Community survey for 2014-2019, the Current Population survey for 2013.
+###Data
 
-Once all the claims data sets were combined together they were then additionally subsetted down for just HCPCS code "G0008" in order to get at appropriate counts for unique beneficiaries. This is an administrative type II HCPCS code used specifically for the influenza vaccine that would be used in conjunction with other types of codes for billing, as it is the code most commonly used to bill for influenza vaccines it made sense to limit the data set to just that. Additionally territories and military bases to focus on the 50 states and the District of Columbia. Once that was complete there were  1,008,254 rows in the data set.
+The data that is being used to fit the model comes from two sources- one from the Medicare Physician & Other Practitioners- by Provider and Service public use files provided by the Centers for Medicare & Medicaid (CMS) website and one from the American Community Survey provided by the US Census Bureau. The CMS data set contains all of the services that providers have submitted claims through out the year for Original Medicare Part B beneficiaries, broken out by National Provider Identifier (NPI) number and HCPCS code. Filtering was applied to obtain flu shot specific charges, additional details can be found in the appendix. The ACS dataset contains the estimates of the Medicare population for each state for the years 2013-2019.
 
-To allow for population proportion comparisons, I aggregated these rows by state, year, and entity status. I then finally paired that with the state population estimates from the ACS survey, which would be used in the regression for the offset term. The original data needed multiplied by 1000 to obtain the whole estimate number.
+
 ```{r include=FALSE}
 
 library(tidyverse)
@@ -172,7 +174,7 @@ flushot_s<-aggregate(Benes~State+Year+EntityFlag+yearnum, data=flushots, sum)
 flushot_s<-left_join(flushot_s, ACS, by=c("State", "Year", "yearnum"))
 
 ```
-| column names      | explanation |
+| Column names      | Explanation |
 | :--:              | :----- |
 | State             | The registration state of the provider|
 | Year              | The year of the claims submitted |
@@ -207,28 +209,29 @@ panel.grid.minor = element_blank(), axis.text = element_text(size = 8), axis.tit
 
 ```
 
-``` {r echo=FALSE, fig.height=3.5, fig.width=6}
+``` {r echo=FALSE, fig.height=2.7, fig.width=6, fig.align='center'}
 p
 ```
 
-This plot justifies the requirements for a Medicare population offset term, as the number of Medicare beneficiaries receiving flu shots increases as the population with in each state increases.
+This plot explores the relationship between the number of flu shot recipients and the Medicare population as a whole, and it is apparent that states that have higher numbers of flu shot recipients also have a higher Medicare population. This justifies utilizing a poisson model with a population offset term to account for these differences.
 
-``` {r echo=FALSE, fig.height=3.5, fig.width=6}
+``` {r echo=FALSE, fig.height=2.7, fig.width=6, fig.align='center'}
 p1
 ```
 
-To make it easier to see patterns in each of the 50 states, line graphs were restricted to different regions in the US. New England with each of the states are included here, the full state results are included in the appendix. There seems to be a declining trend in flu vaccination rates among most of these states.
+To make it easier to see patterns in each of the 50 states, line graphs were restricted to different geographic regions in the United States. Each of the states in New England are included here, the full state results are included in the appendix. This plot shows that there does seem to be a declining linear pattern in the proportion of Medicare Beneficiaries receiving flu shots for each of the states, although at different rates.
 
 
-``` {r echo=FALSE, fig.height=3.5, fig.width=6}
+``` {r echo=FALSE, fig.height=2.7, fig.width=6, fig.align='center'}
 p2
 ```
 
-This plot shows that there are differences in how rates have changed over time when broken out by provider type. Although there is a general downward trend in vaccination rates, for some states those vaccinations are increasingly taking place at organizations instead of individual providers.
+This plot additionally shows that there are differences in how rates have changed over time per state when broken out by provider type. Although there is a general downward trend in vaccination rates for states in the New England region, however for some states those vaccinations are increasingly taking place at organizations instead of individual providers. 
 
 ### Model Fitting
 
-Considering the interest is in comparing counts across groups, a multilevel poisson model is appropriate with population estimates used for offset terms. 
+
+Considering the interest is in comparing counts of flu shots across states over time and at different provider types, a multilevel poisson model is appropriate with population estimates used for offset terms. 
 
 ```{r eval=FALSE}
 model<-glmer(Benes~EntityFlag+yearnum+(yearnum|State) +(EntityFlag|State), 
@@ -250,19 +253,12 @@ The summary of the fixed effects are in the table below, year is significant at 
 
 ## Model Coefficients
 
-To use the state of Maine as an example, the model coefficients are as follows:
+To use the state of Maine as an example since they are the state with the lowest vaccination rates in New England, the model coefficients are as follows:
 
 $$log(Benes/estimate)= -1.74 + 0.76\cdot EntityFlag(O)  - 0.08\cdot yearnum$$
 
-Exponentiating both sides allows the equation be interpreted as (where e=EntityFlag(O) and y=yearnum):
-$$Benes/estimate=(0.175)*(1.079)^e * (0.923)^y$$
-
-Since the outcome variable is a proportion of individuals, it makes sense for the intercept to be 0.175. While it is not possible to have a year 0 in this context, the year coefficient shows that for every year increase, the proportion of Medicare beneficiaries receiving flushots decreases by about 7%. The Entity Flag coefficient compares the proportion of Medicare beneficiaries that receive flushots from organizations to individuals, there is a 7% increase in the proportion of beneficiaries receiving flu shots from organizations than individual providers in the state of Maine.
-
-For each state, the effects of each coefficient are different. For example in California, which has the largest state Medicare population, the baseline intercept is a little bit larger, and the entity comparison is in the opposite direction of more beneficiaries receiving flushots from individuals rather than organizations.
-
-### Model Validation
-
+Exponentiating both sides allows the equation be interpreted as:
+$$Benes/estimate=(0.175)*(1.079)^{EntityFlag} * (0.923)^{yearnum}$$
 ```{r include=FALSE}
 model<-glmer(Benes~EntityFlag+yearnum+(yearnum|State) +(EntityFlag|State), 
 offset=log(estimate),      
@@ -271,7 +267,62 @@ family=poisson(link=log))
 
 ```
 
-```{r echo=FALSE, fig.height=2}
+Since the outcome variable is a proportion of individuals, it makes sense for the intercept to be 0.175. While it is not possible to have a year 0 in this context, the year coefficient shows that for every year increase, the proportion of Medicare beneficiaries receiving flu shots decreases by about 7%. The Entity Flag coefficient compares the proportion of Medicare beneficiaries that receive flu shots from organizations to individuals, there is a 7% increase in the proportion of beneficiaries receiving flu shots from organizations than individual providers in the state of Maine.
+
+
+```{r echo=FALSE, fig.height=3, fig.width=5, fig.align='center'}
+set.seed(428)
+simofbs<-sim(model)
+hist(simofbs@ranef$State[,"ME",2], main="ME", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"ME",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"ME",2],c(0.975)),col="red")
+```
+
+The above plot shows simulations of the random effects for the yearnum coefficient and their frequencies for Maine, with the red lines displaying the cut off levels for an interval containing the true value with 95% probability. The  random effects for the yearnum coefficient for Maine is -0.07071, which falls close to the center of this interval. This shows that Maine has a lower yearnum coefficient compared to the overall fixed effects coefficient, indicating a steeper decline in flu shot rates compared to the overall average.
+
+For each state, the effects of each coefficient are different. For example in California, which has the largest state Medicare population as of 2019, the baseline intercept is a little bit larger, and the entity comparison is in the opposite direction of more beneficiaries receiving flu shots over time from individuals rather than organizations. The yearnum coefficient is still negative similar to Maine, showing an overall decline in flu shot rates over time.
+
+```{r echo=FALSE, fig.height=3, fig.width=5, fig.align='center'}
+hist(simofbs@ranef$State[,"CA",2], main="CA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"CA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"CA",2],c(0.975)),col="red")
+```
+
+The above plot shows a simulation of the random effects for the yearnum coefficient and their frequencies for California, with the red lines displaying the cut off levels for an interval containing the true value with 95% probability. The  random effects for the yearnum coefficient for Maine is -0.01804, which falls with in this interval. This is also negative difference from the fixed effects coefficient, showing a sharper decline in flu shot rates compared to the overall average.
+
+## Discussion
+
+This analysis has some restrictions in that there are some problems with the model- with the clustering of the residuals and the overdispersion factors. Quasipoisson and negative binomial models were also considered, however errors resulted that were not fixable. Other R formulas for running the model were also considered such as stan_glmer, but the model did not converge. Based on these challenges this was the best model that could be composed.
+
+Another key limitation to this analysis comes from the data- it is impossible to get the true numbers of the Medicare beneficiaries that received flu shots from 2013-2019. If beneficiaries are able to obtain shots through a free clinic that didn't require insurance to pay for it, then that scenario is unrecorded here. And as it is the case that in certain states, an increasing number of patients are receiving their vaccinations from entity settings as opposed to individual providers; free clinic settings are likely getting larger shares of these patients. Another key restriction is the population estimates- the ACS survey is an estimate for patients that have both Medicare Part A and B, although it's estimated that 93% of Medicare patients do have both insurances and that an estimate for both can be a sufficient estimate for one, it is likely an overestimate for that Part B population and observed flu vaccination rates are likely higher. 
+
+Despite limitations, this analysis still produces some interesting considerations. If broader flu shot rates for this population were truly declining during this period of time, it lays somewhat of a foundation for some of the difficulties getting the broader US population vaccinated for the Covid-19 pandemic. Additionally if frequent booster shots become required to effectively control the spread of Covid-19 and its variants, understanding how this population was utilizing an already existing seasonal vaccination becomes relevant. Also seeing how beneficiaries are increasingly getting vaccinated in various states, whether that be most commonly through an individual physician or an organization, presents an opportunity to contemplate how to best to reach these patients to persuade them to get vaccinated. Knowing which states had a sharper decline in vaccination rates over time compared to the overall average also helps public health officials identify strategies ****
+
+## Citations
+
+A Dozen Facts About Medicare Advantage in 2020. (2021, January 13). KFF. https://www.kff.org/medicare/issue-brief/a-dozen-facts-about-medicare-advantage-in-2020/
+
+Burden of Influenza. (2021, October 4). Centers for Disease Control and Prevention. https://www.cdc.gov/flu/about/burden/index.html
+
+Centers for Medicare & Medicaid Services Data. (2021). Center for Medicare & Medicaid Services. https://data.cms.gov/provider-summary-by-type-of-service/medicare-physician-other-practitioners/medicare-physician-other-practitioners-by-provider-and-service
+
+US Census Bureau. (2021, October 8). American Community Survey Tables for Health Insurance Coverage. Census.Gov. https://www.census.gov/data/tables/time-series/demo/health-insurance/acs-hi.2013.html
+
+
+\newpage
+## Appendix
+
+### Data Cleaning and Processing
+To subset down to flu shot related charges for each available year, filtering was applied for selected the columns HCPCS_Desc for charges containing the words "flu" and "vaccine". Additional filtering was applied for Rndrng_Prvdr_Cntry="US". The ACS data set gives population estimates for the Medicare Part A and B populations in each of the following states through out the years which was estimated through the American Community survey for 2014-2019, the Current Population survey for 2013.
+
+Once all the claims data sets were combined together they were then additionally subsetted down for just HCPCS code "G0008" in order to get at appropriate counts for unique beneficiaries. This is an administrative type II HCPCS code used specifically for the influenza vaccine that would be used in conjunction with other types of codes for billing, as it is the code most commonly used to bill for influenza vaccines it made sense to limit the data set to just that. Additionally territories and military bases to focus on the 50 states and the District of Columbia. Once that was complete there were  1,008,254 rows in the data set.
+
+To allow for population proportion comparisons, the data was then aggregated by state, year, and entity status. They were then paired with the state population estimates from the ACS survey, which would be used in the regression for the offset term. The original data needed multiplied by 1000 to obtain the whole estimate number. 
+
+### Model Validation
+
+
+```{r echo=FALSE, fig.height=2, fig.align='center'}
 
 z<-as.data.frame(cbind(fitted(model), resid(model)))
 names(z)<-c("Fitted", "Residuals")
@@ -294,30 +345,19 @@ sum(z^2)/(n-k)
 ```
 The overdispersion ratio is 2.3 which is greater than 1, which does indicate that the mean exceeds the variance which is a violation of the equal mean and equal variance assumption required for Poisson.
 
-## Discussion
 
-This analysis has some restrictions in that there are some problems with the model- with the clustering of the residuals and the overdispersion factors. Quasipoisson and negative binomial models were also considered, however errors resulted that were not fixable. Other R formulas for running the model were also considered such as stan_glmer, but the model did not converge. Based on these challenges this was the best model that could be composed.
-
-Another key limitation to this analysis comes from the data- it is impossible to get the true numbers of the Medicare beneficiaries that received flu shots from 2013-2019. If beneficiaries are able to obtain shots through a free clinic that didn't require insurance to pay for it, then that scenario is unrecorded here. And as it is the case that in certain states, an increasing number of patients are receiving their vaccinations from entity settings as opposed to individual providers; free clinic settings are likely getting larger shares of these patients. Another key restriction is the population estimates- the ACS survey is an estimate for patients that have both Medicare Part A and B, although it's estimated that 93% of Medicare patients do have both insurances and that an estimate for both can be a sufficient estimate for one, it is likely an overestimate for that Part B population and observed flu vaccination rates are likely higher. 
-
-Despite limitations, this analysis still produces some interesting considerations. If broader flu shot rates for this population were truly declining during this period of time, it lays somewhat of a foundation for some of the difficulties getting the broader US population vaccinated for the Covid-19 pandemic. Additionally if frequent booster shots become required to effectively control the spread of Covid-19 and its variants, understanding how this population was managing an already existing seasonal vaccination becomes relevant. Also seeing how beneficiaries are increasingly getting vaccinated in various states, whether that be most commonly through an individual physician or an organization, presents an opportunity to contemplate how to best to reach these patients to persuade them to get vaccinated.
-
-## Citations
-
-A Dozen Facts About Medicare Advantage in 2020. (2021, January 13). KFF. https://www.kff.org/medicare/issue-brief/a-dozen-facts-about-medicare-advantage-in-2020/
-
-Burden of Influenza. (2021, October 4). Centers for Disease Control and Prevention. https://www.cdc.gov/flu/about/burden/index.html
-
-Centers for Medicare & Medicaid Services Data. (2021). Center for Medicare & Medicaid Services. https://data.cms.gov/provider-summary-by-type-of-service/medicare-physician-other-practitioners/medicare-physician-other-practitioners-by-provider-and-service
-
-US Census Bureau. (2021, October 8). American Community Survey Tables for Health Insurance Coverage. Census.Gov. https://www.census.gov/data/tables/time-series/demo/health-insurance/acs-hi.2013.html
+```{r echo=FALSE, fig.align='center'}
+rootogram(flushot_s[,5]/flushot_s[,6], predict(model)/flushot_s[,6])
+```
 
 
-\newpage
-## Appendix
+Rootogram plot showing potential model prediction issues
+
+
+
 ### More EDA
 
-```{r echo=FALSE , fig.height=3, fig.width=6}
+```{r echo=FALSE , fig.height=3, fig.width=6, fig.align='center'}
 flushot_s$state<-flushot_s$State
 
 plot_usmap(regions="states", data = flushot_s%>%filter(Year=="2019"), values = "estimate", color = "black") + scale_fill_continuous(low="white", high="blue", name="Beneficiaries", label = scales::comma)+labs(title = "Estimates of Medicare Beneficiaries Per State 2019")
@@ -388,11 +428,167 @@ panel.grid.minor = element_blank(), axis.text = element_text(size = 8), axis.tit
 
 ```
 
-```{r echo=FALSE}
-rootogram(flushot_s[,5]/flushot_s[,6], predict(model)/flushot_s[,6])
+
+\newpage
+Full set of random effect yearnum histograms for each state:
+
+```{r echo=FALSE, fig.align='center'}
+hist(simofbs@ranef$State[,"AK",2], main="AK", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"AK",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"AK",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"AL",2], main="AL", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"AL",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"AL",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"AR",2], main="AR", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"AR",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"AR",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"AZ",2], main="AZ", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"AZ",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"AZ",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"CA",2], main="CA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"CA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"CA",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"CO",2], main="CO", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"CO",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"CO",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"CT",2], main="CT", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"CT",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"CT",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"DC",2], main="DC", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"DC",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"DC",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"DE",2], main="DE", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"DE",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"DE",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"FL",2], main="FL", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"FL",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"FL",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"GA",2], main="GA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"GA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"GA",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"HI",2], main="HI", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"HI",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"HI",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"IA",2], main="IA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"IA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"IA",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"ID",2], main="ID", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"ID",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"ID",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"IL",2], main="IL", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"IL",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"IL",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"IN",2], main="IN", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"IN",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"IN",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"KS",2], main="KS", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"KS",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"KS",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"KY",2], main="KY", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"KY",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"KY",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"LA",2], main="LA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"LA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"LA",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"MA",2], main="MA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"MA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"MA",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"MD",2], main="MD", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"MD",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"MD",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"ME",2], main="ME", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"ME",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"ME",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"MI",2], main="MI", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"MI",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"MI",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"MN",2], main="MN", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"MN",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"MN",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"MO",2], main="MO", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"MO",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"MO",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"MS",2], main="MS", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"MS",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"MS",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"MT",2], main="MT", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"MT",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"MT",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"NC",2], main="NC", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"NC",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"NC",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"ND",2], main="ND", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"ND",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"ND",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"NE",2], main="NE", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"NE",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"NE",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"NH",2], main="NH", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"NH",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"NH",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"NJ",2], main="NJ", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"NJ",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"NJ",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"NM",2], main="NM", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"NM",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"NM",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"NV",2], main="NV", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"NV",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"NV",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"NY",2], main="NY", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"NY",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"NY",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"OH",2], main="OH", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"OH",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"OH",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"OK",2], main="OK", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"OK",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"OK",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"OR",2], main="OR", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"OR",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"OR",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"PA",2], main="PA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"PA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"PA",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"RI",2], main="RI", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"RI",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"RI",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"SC",2], main="SC", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"SC",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"SC",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"SD",2], main="SD", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"SD",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"SD",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"TN",2], main="TN", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"TN",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"TN",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"TX",2], main="TX", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"TX",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"TX",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"UT",2], main="UT", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"UT",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"UT",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"VA",2], main="VA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"VA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"VA",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"VT",2], main="VT", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"VT",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"VT",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"WA",2], main="WA", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"WA",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"WA",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"WI",2], main="WI", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"WI",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"WI",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"WV",2], main="WV", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"WV",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"WV",2],c(0.975)),col="red")
+hist(simofbs@ranef$State[,"WY",2], main="WY", xlab="Simulated Yearnum Random Effects Frequency", col="aliceblue")
+abline(v=quantile(simofbs@ranef$State[,"WY",2],c(0.025)),col="red")
+abline(v=quantile(simofbs@ranef$State[,"WY",2],c(0.975)),col="red")
+
 ```
 
-Rootogram plot showing model prediction issues
 
 \newpage
 ###Full Results
