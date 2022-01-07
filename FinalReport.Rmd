@@ -288,7 +288,7 @@ abline(v=quantile(simofbs@ranef$State[,"CA",2],c(0.025)),col="red")
 abline(v=quantile(simofbs@ranef$State[,"CA",2],c(0.975)),col="red")
 ```
 
-The above plot shows a simulation of the random effects for the yearnum coefficient and their frequencies for California, with the red lines displaying the cut off levels for an interval containing the true value with 95% probability. The  random effects for the yearnum coefficient for Maine is -0.01804, which falls with in this interval. This is also negative difference from the fixed effects coefficient, showing a sharper decline in flu shot rates compared to the overall average.
+The above plot shows a simulation of the random effects for the yearnum coefficient and their frequencies for California, with the red lines displaying the cut off levels for an interval containing the true value with 95% probability. The  random effects for the yearnum coefficient for California is -0.01804, which falls with in this interval. This is also negative difference from the fixed effects coefficient, showing a sharper decline in flu shot rates compared to the overall average.
 
 ## Discussion
 
